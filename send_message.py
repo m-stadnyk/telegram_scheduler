@@ -32,7 +32,15 @@ def main() -> int:
         return 1
 
     now = datetime.now(timezone.utc)
-    window_minutes = int(os.environ.get("WINDOW_MINUTES", "5"))
+
+    try:
+        window_minutes = int(os.environ.get("WINDOW_MINUTES", "5"))
+        if window_minutes <= 0:
+            raise ValueError("WINDOW_MINUTES must be a positive integer.")
+    except ValueError as e:
+        print(f"ERROR: Invalid WINDOW_MINUTES value ({e}).", file=sys.stderr)
+        return 1
+
     window = timedelta(minutes=window_minutes)
     sent_count = 0
 
@@ -57,7 +65,7 @@ def main() -> int:
                 return 1
 
     if sent_count == 0:
-        print(f"No messages scheduled within \u00b15 min of {now.strftime('%Y-%m-%dT%H:%M:%SZ')}.")
+        print(f"No messages scheduled within {window_minutes} min of {now.strftime('%Y-%m-%dT%H:%M:%SZ')}.")
 
     return 0
 

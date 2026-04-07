@@ -1,6 +1,6 @@
 [
   {
-    "datetime": "2026-04-07T13:50:00-04:00",
+    "datetime": "yyyy-mm-ddTHH:MM:SS±hh:mm",
     "message": "Your test message here."
   }
 ]
