@@ -6,9 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       window_minutes:
-        description: "Delivery window in minutes (default: 5)"
+        description: "Delivery window in minutes"
         required: false
-        default: "5"
 
 jobs:
   send:
