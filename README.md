@@ -94,54 +94,10 @@ jobs:
 on:
   schedule:
     - cron: "*/5 * * * *"   # ← your desired interval here
-  workflow_dispatch:
-    inputs:
-      window_minutes:
-        description: "Delivery window in minutes (default: 5)"
-        required: false
-        default: "5"
+
 ```
 
 **3. (Optional) Set the delivery window** by adding a `WINDOW_MINUTES` variable to your GitHub environment (Settings → Environments → your environment → Variables). If omitted, the window defaults to ±5 minutes. You can also override it per manual run via the `window_minutes` input in the Actions UI.
-
-The full file should look like this after your edits:
-
-```yaml
-name: Send Scheduled Messages
-
-on:
-  schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch:
-    inputs:
-      window_minutes:
-        description: "Delivery window in minutes (default: 5)"
-        required: false
-        default: "5"
-
-jobs:
-  send:
-    runs-on: ubuntu-latest
-    environment: my-campaign
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Send scheduled messages
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
-          WINDOW_MINUTES: ${{ inputs.window_minutes || vars.WINDOW_MINUTES || '5' }}
-        run: python send_message.py
-```
 
 Commit and push this change to your implementation branch.
 
@@ -149,7 +105,7 @@ Commit and push this change to your implementation branch.
 
 ## Step 6 — Populate `messages.json`
 
-Edit `messages.json` on your implementation branch. Each entry needs two fields:
+Edit `messages.json` on your implementation branch. Each entry needs two fields datetime and message:
 
 ```json
 [
@@ -174,14 +130,6 @@ Commit and push the file to your implementation branch. The scheduler will start
 ## Timezone Handling
 
 Every `datetime` value **must** include a timezone offset such as `+03:00` or `-05:00` or `+00:00`. The bot converts all times to UTC internally before comparing them to the current time, so you can freely mix offsets across entries.
-
-Examples:
-
-| Local time you want     | How to write it                  |
-|-------------------------|----------------------------------|
-| 9 AM Moscow (UTC+3)     | `2026-06-01T09:00:00+03:00`      |
-| 9 AM New York (UTC-4)   | `2026-06-01T09:00:00-04:00`      |
-| 9 AM UTC                | `2026-06-01T09:00:00+00:00`      |
 
 If you omit the offset, the entry will be skipped with a warning.
 
@@ -220,7 +168,7 @@ If you set a longer cron interval (e.g. every 15 minutes), consider increasing `
 
 ## Limitations
 
-- **No retry logic.** If the Telegram API is unreachable when the workflow runs, the message will not be sent. The next run will only resend it if its scheduled time is still within the ±5 minute window.
+- **No retry logic.** If the Telegram API is unreachable when the workflow runs, the message will not be sent. The next run will only resend it if its scheduled time is still within the window.
 - **No duplicate prevention.** The bot does not record which messages have been sent. If the workflow fires twice in quick succession (which GitHub occasionally does), a message could be delivered twice. This is rare in practice.
 - **GitHub Actions cron is not exact.** Scheduled workflows can be delayed by several minutes during periods of high load on GitHub's infrastructure. Critical time-sensitive messages should not rely on this bot.
 - **Plain text only.** The bot uses Telegram's default parse mode, so special characters are sent as-is and no formatting is applied.
