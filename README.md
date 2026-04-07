@@ -95,7 +95,14 @@ on:
   schedule:
     - cron: "*/5 * * * *"   # ← your desired interval here
   workflow_dispatch:
+    inputs:
+      window_minutes:
+        description: "Delivery window in minutes (default: 5)"
+        required: false
+        default: "5"
 ```
+
+**3. (Optional) Set the delivery window** by adding a `WINDOW_MINUTES` variable to your GitHub environment (Settings → Environments → your environment → Variables). If omitted, the window defaults to ±5 minutes. You can also override it per manual run via the `window_minutes` input in the Actions UI.
 
 The full file should look like this after your edits:
 
@@ -106,6 +113,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      window_minutes:
+        description: "Delivery window in minutes (default: 5)"
+        required: false
+        default: "5"
 
 jobs:
   send:
@@ -127,6 +139,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          WINDOW_MINUTES: ${{ inputs.window_minutes || vars.WINDOW_MINUTES || '5' }}
         run: python send_message.py
 ```
 
@@ -183,18 +196,25 @@ You can trigger the workflow at any time without waiting for the cron schedule:
 3. Use the branch selector to pick your implementation branch.
 4. Click **Run workflow → Run workflow**.
 
-This is useful for verifying that your environment secrets are configured correctly. To actually trigger a message send during a manual test, temporarily add an entry to `messages.json` with a datetime within ±5 minutes of now (in UTC), commit it, then run the workflow.
+This is useful for verifying that your environment secrets are configured correctly. To actually trigger a message send during a manual test, temporarily add an entry to `messages.json` with a datetime within the delivery window of now (in UTC), commit it, then run the workflow. You can also set the `window_minutes` input when triggering manually to widen the window for testing.
 
 ---
 
-## The ±5 Minute Delivery Window
+## The Delivery Window
 
-When the workflow fires, it looks for messages whose scheduled datetime is within **5 minutes before or after** the current UTC time. This means:
+When the workflow fires, it looks for messages whose scheduled datetime falls within a window of **±N minutes** around the current UTC time. The window defaults to **5 minutes** and can be configured in three ways, in priority order:
+
+1. **`workflow_dispatch` input** — set `window_minutes` when triggering manually from the Actions UI
+2. **GitHub Actions variable** — add a `WINDOW_MINUTES` variable to your environment (Settings → Environments → your environment → Variables) for scheduled runs
+3. **Default** — falls back to `5` if neither is set
+
+Example with the default window:
 
 - A message scheduled for `10:00` will be caught if the workflow runs at any time between `09:55` and `10:05`.
-- **Avoid scheduling two messages within 5 minutes of each other.** If two entries fall in the same ±5 minute window, both will be sent. Space your messages at least 10 minutes apart to be safe.
 
-The delivery window is fixed at ±5 minutes regardless of your cron interval. If you set a longer cron interval (e.g. every 15 minutes), ensure your messages are spaced more than 10 minutes apart to avoid double-sends during overlapping windows.
+**Avoid scheduling two messages within `N` minutes of each other** (where `N` is your window size). If two entries fall in the same window, both will be sent. Space your messages at least `2×N` minutes apart to be safe.
+
+If you set a longer cron interval (e.g. every 15 minutes), consider increasing `WINDOW_MINUTES` to match, or ensure messages are spaced far enough apart to avoid gaps in coverage.
 
 ---
 

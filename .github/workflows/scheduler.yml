@@ -2,6 +2,11 @@ name: Send Scheduled Messages
 
 on:
   workflow_dispatch:
+    inputs:
+      window_minutes:
+        description: "Delivery window in minutes (default: 5)"
+        required: false
+        default: "5"
 
 jobs:
   send:
@@ -23,4 +28,5 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          WINDOW_MINUTES: ${{ inputs.window_minutes || vars.WINDOW_MINUTES || '5' }}
         run: python send_message.py
