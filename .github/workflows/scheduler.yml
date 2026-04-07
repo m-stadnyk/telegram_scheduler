@@ -1,13 +1,12 @@
 name: Send Scheduled Messages
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
   send:
     runs-on: ubuntu-latest
+    environment: your-environment-name  # replace with your GitHub environment name
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
