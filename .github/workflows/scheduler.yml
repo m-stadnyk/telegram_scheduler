@@ -8,6 +8,7 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
+    environment: LunaLetterSending
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
