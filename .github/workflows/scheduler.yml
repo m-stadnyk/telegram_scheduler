@@ -1,13 +1,16 @@
 name: Send Scheduled Messages
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      window_minutes:
+        description: "Delivery window in minutes"
+        required: false
 
 jobs:
   send:
     runs-on: ubuntu-latest
+    environment: your-environment-name  # replace with your GitHub environment name
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,4 +27,5 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          WINDOW_MINUTES: ${{ inputs.window_minutes || vars.WINDOW_MINUTES || '5' }}
         run: python send_message.py
