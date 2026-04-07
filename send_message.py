@@ -32,7 +32,8 @@ def main() -> int:
         return 1
 
     now = datetime.now(timezone.utc)
-    window = timedelta(minutes=5)
+    window_minutes = int(os.environ.get("WINDOW_MINUTES", "5"))
+    window = timedelta(minutes=window_minutes)
     sent_count = 0
 
     for entry in messages:
