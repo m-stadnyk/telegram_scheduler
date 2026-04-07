@@ -1,14 +1,6 @@
 [
   {
-    "datetime": "2026-04-10T09:00:00+03:00",
+    "datetime": "2026-04-07T09:25:44-04:00",
     "message": "Good morning! This is your scheduled Thursday briefing. Have a productive day ahead."
-  },
-  {
-    "datetime": "2026-04-14T12:00:00+03:00",
-    "message": "Midday reminder: the weekly sync is at 3 PM today. Please review the agenda beforehand."
-  },
-  {
-    "datetime": "2026-04-17T18:30:00+03:00",
-    "message": "End-of-week wrap-up: great work this week, everyone. See you on Monday!"
   }
 ]
