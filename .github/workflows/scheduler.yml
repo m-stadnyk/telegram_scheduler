@@ -1,6 +1,8 @@
 name: Send Scheduled Messages
 
 on:
+  schedule:
+    - cron: '15 1 * * *'
   workflow_dispatch:
     inputs:
       window_minutes:
@@ -10,7 +12,7 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
-    environment: your-environment-name  # replace with your GitHub environment name
+    environment: LunaLetterSending
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
