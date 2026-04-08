@@ -25,10 +25,14 @@ def main() -> int:
         print("ERROR: TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID must be set.", file=sys.stderr)
         return 1
 
+    messages_json_env = os.environ.get("MESSAGES_JSON")
     try:
-        messages = load_messages("messages.json")
+        if messages_json_env:
+            messages = json.loads(messages_json_env)
+        else:
+            messages = load_messages("messages.json")
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"ERROR: Could not load messages.json: {e}", file=sys.stderr)
+        print(f"ERROR: Could not load messages: {e}", file=sys.stderr)
         return 1
 
     now = datetime.now(timezone.utc)
