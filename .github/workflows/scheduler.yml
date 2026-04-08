@@ -2,7 +2,7 @@ name: Send Scheduled Messages
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '15 1 * * *'
   workflow_dispatch:
     inputs:
       window_minutes:
