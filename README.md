@@ -1,12 +1,26 @@
 # Telegram Channel Scheduler Bot
 
-This repository automatically sends pre-written messages to a Telegram channel at scheduled times. You populate a `messages.json` file with your message text and the exact datetime you want each one sent, then GitHub Actions runs a check every 5 minutes and delivers any message whose scheduled time falls within that window. There is no web interface, no database, and nothing to install on your own computer.
+This repository automatically sends pre-written messages to a Telegram channel at scheduled times. You populate a `messages.json` file with your message text and the exact datetime you want each one sent, then GitHub Actions runs a check on your chosen interval and delivers any message whose scheduled time falls within that window.
+
+The main branch intentionally has no cron schedule and will not send anything. All active scheduling lives on dedicated implementation branches, each backed by its own GitHub environment with isolated secrets.
+
+---
+
+## Overview
+
+Each deployment follows this structure:
+
+- A branch named `implementation/[name]` holds your messages and workflow config
+- A GitHub environment named to match sits at the repository level and stores the credentials
+- The workflow on that branch references the environment and runs on your chosen cron schedule
+
+This keeps multiple independent schedules (different bots, channels, or campaigns) cleanly separated without any shared state.
 
 ---
 
 ## Prerequisites
 
-- A GitHub account with this repository forked or cloned to your own account
+- A GitHub account with this repository forked to your own account
 - A Telegram account
 - A Telegram channel where you are an administrator
 
@@ -33,23 +47,65 @@ This repository automatically sends pre-written messages to a Telegram channel a
 
 ---
 
-## Step 3 — Add Secrets to GitHub Actions
+## Step 3 — Create an Implementation Branch
 
-1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
-2. Click **New repository secret** and add the following two secrets:
+Create a new branch from main using the naming convention `implementation/[name]`, where `[name]` describes this particular deployment (e.g. `implementation/product-launch` or `implementation/weekly-digest`):
+
+```bash
+git checkout -b implementation/my-campaign
+git push -u origin implementation/my-campaign
+```
+
+All further changes in this guide are made on this branch.
+
+---
+
+## Step 4 — Create a Matching GitHub Environment
+
+1. In your GitHub repository, go to **Settings → Environments**.
+2. Click **New environment** and give it the same name you used for the branch suffix, e.g. `my-campaign`.
+3. Inside the environment, click **Add secret** and add the following two secrets:
 
 | Secret name            | Value                                      |
 |------------------------|--------------------------------------------|
 | `TELEGRAM_BOT_TOKEN`   | The token from BotFather (Step 1)          |
 | `TELEGRAM_CHANNEL_ID`  | Your channel's username or numeric ID (Step 2) |
 
-These values are encrypted and will never appear in logs.
+These values are scoped to this environment only and will never appear in logs.
 
 ---
 
-## Step 4 — Populate `messages.json`
+## Step 5 — Update the Workflow Config
 
-Edit `messages.json` in the root of the repository. Each entry needs two fields:
+On your implementation branch, open `.github/workflows/scheduler.yml` and make two changes:
+
+**1. Set the environment name** to match what you created in Step 4:
+
+```yaml
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    environment: my-campaign   # ← your environment name here
+```
+
+**2. Add a cron schedule** with the interval you want. The example below checks every 5 minutes:
+
+```yaml
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # ← your desired interval here
+
+```
+
+**3. (Optional) Set the delivery window** by adding a `WINDOW_MINUTES` variable to your GitHub environment (Settings → Environments → your environment → Variables). If omitted, the window defaults to ±5 minutes. You can also override it per manual run via the `window_minutes` input in the Actions UI.
+
+Commit and push this change to your implementation branch.
+
+---
+
+## Step 6 — Populate `messages.json`
+
+Edit `messages.json` on your implementation branch. Each entry needs two fields datetime and message:
 
 ```json
 [
@@ -67,21 +123,13 @@ Edit `messages.json` in the root of the repository. Each entry needs two fields:
 - **`datetime`** — ISO 8601 format with a timezone offset. See the section below for details.
 - **`message`** — Plain text. No HTML, no Markdown.
 
-Commit and push the file to the repository. The scheduler will start picking up entries automatically.
+Commit and push the file to your implementation branch. The scheduler will start picking up entries automatically once the workflow runs.
 
 ---
 
 ## Timezone Handling
 
 Every `datetime` value **must** include a timezone offset such as `+03:00` or `-05:00` or `+00:00`. The bot converts all times to UTC internally before comparing them to the current time, so you can freely mix offsets across entries.
-
-Examples:
-
-| Local time you want     | How to write it                  |
-|-------------------------|----------------------------------|
-| 9 AM Moscow (UTC+3)     | `2026-06-01T09:00:00+03:00`      |
-| 9 AM New York (UTC-4)   | `2026-06-01T09:00:00-04:00`      |
-| 9 AM UTC                | `2026-06-01T09:00:00+00:00`      |
 
 If you omit the offset, the entry will be skipped with a warning.
 
@@ -93,24 +141,34 @@ You can trigger the workflow at any time without waiting for the cron schedule:
 
 1. Go to the **Actions** tab in your repository.
 2. Select **Send Scheduled Messages** from the left sidebar.
-3. Click **Run workflow → Run workflow**.
+3. Use the branch selector to pick your implementation branch.
+4. Click **Run workflow → Run workflow**.
 
-This is useful for verifying that your secrets are configured correctly. To actually trigger a message send during a manual test, temporarily add an entry to `messages.json` with a datetime within ±5 minutes of now (in UTC), commit it, then run the workflow.
+This is useful for verifying that your environment secrets are configured correctly. To actually trigger a message send during a manual test, temporarily add an entry to `messages.json` with a datetime within the delivery window of now (in UTC), commit it, then run the workflow. You can also set the `window_minutes` input when triggering manually to widen the window for testing.
 
 ---
 
-## The ±5 Minute Delivery Window
+## The Delivery Window
 
-The workflow runs every 5 minutes. When it fires, it looks for messages whose scheduled datetime is within **5 minutes before or after** the current UTC time. This means:
+When the workflow fires, it looks for messages whose scheduled datetime falls within a window of **±N minutes** around the current UTC time. The window defaults to **5 minutes** and can be configured in three ways, in priority order:
+
+1. **`workflow_dispatch` input** — set `window_minutes` when triggering manually from the Actions UI
+2. **GitHub Actions variable** — add a `WINDOW_MINUTES` variable to your environment (Settings → Environments → your environment → Variables) for scheduled runs
+3. **Default** — falls back to `5` if neither is set
+
+Example with the default window:
 
 - A message scheduled for `10:00` will be caught if the workflow runs at any time between `09:55` and `10:05`.
-- **Avoid scheduling two messages within 5 minutes of each other.** If two entries fall in the same ±5 minute window, both will be sent. Space your messages at least 10 minutes apart to be safe.
+
+**Avoid scheduling two messages within `N` minutes of each other** (where `N` is your window size). If two entries fall in the same window, both will be sent. Space your messages at least `2×N` minutes apart to be safe.
+
+If you set a longer cron interval (e.g. every 15 minutes), consider increasing `WINDOW_MINUTES` to match, or ensure messages are spaced far enough apart to avoid gaps in coverage.
 
 ---
 
 ## Limitations
 
-- **No retry logic.** If the Telegram API is unreachable when the workflow runs, the message will not be sent. The next run will only resend it if its scheduled time is still within the ±5 minute window.
+- **No retry logic.** If the Telegram API is unreachable when the workflow runs, the message will not be sent. The next run will only resend it if its scheduled time is still within the window.
 - **No duplicate prevention.** The bot does not record which messages have been sent. If the workflow fires twice in quick succession (which GitHub occasionally does), a message could be delivered twice. This is rare in practice.
-- **GitHub Actions cron is not exact.** The `*/5 * * * *` schedule means GitHub will *attempt* to run every 5 minutes, but actual execution can be delayed by several minutes during periods of high load. Critical time-sensitive messages should not rely on this bot.
+- **GitHub Actions cron is not exact.** Scheduled workflows can be delayed by several minutes during periods of high load on GitHub's infrastructure. Critical time-sensitive messages should not rely on this bot.
 - **Plain text only.** The bot uses Telegram's default parse mode, so special characters are sent as-is and no formatting is applied.
